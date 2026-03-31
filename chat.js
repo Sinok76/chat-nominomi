@@ -33,7 +33,8 @@
 		input.focus();
 
 		if (messages.children.length === 0) {
-			appendMessage('bot', 'Bonjour ! Je suis Stella, votre assistante IA. Comment puis-je vous aider ?');
+			var welcome = (config.welcomeMessage || '').trim();
+			if (welcome) appendMessage('bot', welcome);
 		}
 	}
 

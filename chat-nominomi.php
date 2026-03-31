@@ -3,7 +3,7 @@
  * Plugin Name: Chat Nominomi
  * Plugin URI:  https://nominomi.fr
  * Description: Widget chat flottant alimenté par l'IA Stella.
- * Version:     1.0.0
+ * Version:     1.1.0
  * Author:      Nominomi
  * License:     GPL-2.0-or-later
  * Text Domain: chat-nominomi
@@ -15,6 +15,12 @@ class Chat_Nominomi {
 
 	private static $instance = null;
 
+	const DEFAULT_BOT_NAME  = 'Stella';
+	const DEFAULT_WELCOME   = 'Bonjour ! Je suis Stella, votre assistante IA. Comment puis-je vous aider ?';
+	const DEFAULT_COLOR     = '#4f46e5';
+	const DEFAULT_API_URL   = 'https://chat.nominomi.fr/chat';
+	const DEFAULT_CLIENT_ID = 'nominomi';
+
 	public static function get_instance() {
 		if ( null === self::$instance ) {
 			self::$instance = new self();
@@ -23,30 +29,75 @@ class Chat_Nominomi {
 	}
 
 	private function __construct() {
-		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_assets' ] );
-		add_action( 'wp_footer',          [ $this, 'render_widget' ] );
+		add_action( 'wp_enqueue_scripts',    [ $this, 'enqueue_assets' ] );
+		add_action( 'wp_footer',             [ $this, 'render_widget' ] );
+		add_action( 'admin_menu',            [ $this, 'register_menu' ] );
+		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_assets' ] );
+		add_action( 'admin_post_cn_save',    [ $this, 'save_settings' ] );
 	}
 
+	// ── Helpers ───────────────────────────────────────────────────────────
+
+	private function opt( $key, $default = '' ) {
+		return get_option( $key, $default );
+	}
+
+	/**
+	 * Convert a #rrggbb hex color to "r, g, b" string for CSS rgba().
+	 */
+	private function hex_to_rgb( $hex ) {
+		$hex = ltrim( $hex, '#' );
+		if ( 3 === strlen( $hex ) ) {
+			$hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+		}
+		return implode( ', ', [
+			hexdec( substr( $hex, 0, 2 ) ),
+			hexdec( substr( $hex, 2, 2 ) ),
+			hexdec( substr( $hex, 4, 2 ) ),
+		] );
+	}
+
+	// ── Front-end ─────────────────────────────────────────────────────────
+
 	public function enqueue_assets() {
+		if ( ! $this->opt( 'chat_wp_enabled', '1' ) ) return;
+
+		$api_url   = esc_url( $this->opt( 'chat_wp_api_url',        self::DEFAULT_API_URL ) );
+		$client_id = sanitize_text_field( $this->opt( 'chat_wp_client_id',    self::DEFAULT_CLIENT_ID ) );
+		$welcome   = sanitize_textarea_field( $this->opt( 'chat_wp_welcome_message', self::DEFAULT_WELCOME ) );
+		$color     = sanitize_hex_color( $this->opt( 'chat_wp_primary_color', self::DEFAULT_COLOR ) ) ?: self::DEFAULT_COLOR;
+
 		wp_enqueue_script(
 			'chat-nominomi',
 			plugin_dir_url( __FILE__ ) . 'chat.js',
 			[],
-			'1.0.0',
+			'1.1.0',
 			true
 		);
 
 		wp_localize_script( 'chat-nominomi', 'chatConfig', [
-			'apiUrl'   => 'https://chat.nominomi.fr/chat',
-			'clientId' => 'nominomi',
+			'apiUrl'         => $api_url,
+			'clientId'       => $client_id,
+			'welcomeMessage' => $welcome,
 		] );
 
 		wp_register_style( 'chat-nominomi-base', false );
 		wp_enqueue_style( 'chat-nominomi-base' );
-		wp_add_inline_style( 'chat-nominomi-base', $this->get_css() );
+		wp_add_inline_style( 'chat-nominomi-base', $this->get_css( $color ) );
 	}
 
 	public function render_widget() {
+		if ( ! $this->opt( 'chat_wp_enabled', '1' ) ) return;
+
+		$bot_name = esc_html( $this->opt( 'chat_wp_bot_name', self::DEFAULT_BOT_NAME ) );
+		$avatar   = esc_url( $this->opt( 'chat_wp_avatar', '' ) );
+		$initial  = esc_html( mb_strtoupper( mb_substr( strip_tags( $bot_name ), 0, 1 ) ) );
+
+		if ( $avatar ) {
+			$avatar_html = '<img src="' . $avatar . '" alt="' . $bot_name . '" style="width:100%;height:100%;object-fit:cover;" />';
+		} else {
+			$avatar_html = $initial;
+		}
 		?>
 		<div id="cn-bubble" role="button" aria-label="Ouvrir le chat" tabindex="0">
 			<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="26" height="26" aria-hidden="true">
@@ -54,12 +105,12 @@ class Chat_Nominomi {
 			</svg>
 		</div>
 
-		<div id="cn-window" role="dialog" aria-label="Chat Stella" aria-hidden="true">
+		<div id="cn-window" role="dialog" aria-label="Chat <?php echo $bot_name; ?>" aria-hidden="true">
 			<div id="cn-header">
 				<div id="cn-header-info">
-					<div id="cn-avatar" aria-hidden="true">S</div>
+					<div id="cn-avatar" aria-hidden="true"><?php echo $avatar_html; ?></div>
 					<div>
-						<div id="cn-bot-name">Stella</div>
+						<div id="cn-bot-name"><?php echo $bot_name; ?></div>
 						<div id="cn-bot-status">
 							<span id="cn-status-dot" aria-hidden="true"></span>
 							En ligne &middot; IA active
@@ -75,7 +126,7 @@ class Chat_Nominomi {
 
 			<div id="cn-messages" role="log" aria-live="polite" aria-relevant="additions"></div>
 
-			<div id="cn-typing" aria-live="polite" aria-label="Stella est en train d'écrire">
+			<div id="cn-typing" aria-live="polite" aria-label="<?php echo $bot_name; ?> est en train d'écrire">
 				<div class="cn-typing-bubble">
 					<span></span><span></span><span></span>
 				</div>
@@ -100,7 +151,237 @@ class Chat_Nominomi {
 		<?php
 	}
 
-	private function get_css() {
+	// ── Admin ─────────────────────────────────────────────────────────────
+
+	public function register_menu() {
+		add_options_page(
+			'Chat IA – Nominomi',
+			'Chat IA',
+			'manage_options',
+			'chat-nominomi',
+			[ $this, 'render_admin_page' ]
+		);
+	}
+
+	public function enqueue_admin_assets( $hook ) {
+		if ( 'settings_page_chat-nominomi' !== $hook ) return;
+
+		wp_enqueue_media();
+
+		wp_register_style( 'chat-nominomi-admin', false );
+		wp_enqueue_style( 'chat-nominomi-admin' );
+		wp_add_inline_style( 'chat-nominomi-admin', $this->get_admin_css() );
+
+		// Attach admin JS to jquery (always present in WP admin)
+		wp_add_inline_script( 'jquery', $this->get_admin_js() );
+	}
+
+	public function save_settings() {
+		check_admin_referer( 'cn_save_settings', 'cn_nonce' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( 'Accès refusé.', 403 );
+		}
+
+		update_option( 'chat_wp_enabled',         isset( $_POST['chat_wp_enabled'] ) ? '1' : '0' );
+		update_option( 'chat_wp_bot_name',         sanitize_text_field( wp_unslash( $_POST['chat_wp_bot_name'] ?? '' ) ) );
+		update_option( 'chat_wp_welcome_message',  sanitize_textarea_field( wp_unslash( $_POST['chat_wp_welcome_message'] ?? '' ) ) );
+		update_option( 'chat_wp_avatar',           esc_url_raw( wp_unslash( $_POST['chat_wp_avatar'] ?? '' ) ) );
+		update_option( 'chat_wp_primary_color',    sanitize_hex_color( wp_unslash( $_POST['chat_wp_primary_color'] ?? '' ) ) ?: self::DEFAULT_COLOR );
+		update_option( 'chat_wp_api_url',          esc_url_raw( wp_unslash( $_POST['chat_wp_api_url'] ?? '' ) ) );
+		update_option( 'chat_wp_client_id',        sanitize_text_field( wp_unslash( $_POST['chat_wp_client_id'] ?? '' ) ) );
+
+		wp_safe_redirect( admin_url( 'options-general.php?page=chat-nominomi&updated=1' ) );
+		exit;
+	}
+
+	public function render_admin_page() {
+		if ( ! current_user_can( 'manage_options' ) ) return;
+
+		$o = [
+			'enabled'   => $this->opt( 'chat_wp_enabled', '1' ),
+			'bot_name'  => $this->opt( 'chat_wp_bot_name',        self::DEFAULT_BOT_NAME ),
+			'welcome'   => $this->opt( 'chat_wp_welcome_message', self::DEFAULT_WELCOME ),
+			'avatar'    => $this->opt( 'chat_wp_avatar',          '' ),
+			'color'     => sanitize_hex_color( $this->opt( 'chat_wp_primary_color', self::DEFAULT_COLOR ) ) ?: self::DEFAULT_COLOR,
+			'api_url'   => $this->opt( 'chat_wp_api_url',         self::DEFAULT_API_URL ),
+			'client_id' => $this->opt( 'chat_wp_client_id',       self::DEFAULT_CLIENT_ID ),
+		];
+		$health_url = esc_html( rtrim( $o['api_url'], '/' ) . '/health' );
+		?>
+		<div class="wrap">
+			<h1>Chat IA – Nominomi</h1>
+
+			<?php if ( isset( $_GET['updated'] ) ) : ?>
+				<div class="notice notice-success is-dismissible">
+					<p>Réglages enregistrés avec succès.</p>
+				</div>
+			<?php endif; ?>
+
+			<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+				<?php wp_nonce_field( 'cn_save_settings', 'cn_nonce' ); ?>
+				<input type="hidden" name="action" value="cn_save" />
+
+				<div class="chatbot-admin-container">
+
+					<!-- ── Main column ── -->
+					<div class="chatbot-admin-main">
+
+						<!-- Général -->
+						<div class="chatbot-section">
+							<h2>Général</h2>
+							<table class="form-table" role="presentation">
+								<tr>
+									<th scope="row">Activer le widget</th>
+									<td>
+										<label class="chatbot-toggle">
+											<input type="checkbox" name="chat_wp_enabled" value="1" <?php checked( $o['enabled'], '1' ); ?> />
+											<span class="chatbot-toggle-slider"></span>
+										</label>
+										<p class="description" style="margin-top:8px;">Affiche ou masque le widget sur toutes les pages.</p>
+									</td>
+								</tr>
+							</table>
+						</div>
+
+						<!-- Apparence -->
+						<div class="chatbot-section">
+							<h2>Apparence</h2>
+							<table class="form-table" role="presentation">
+								<tr>
+									<th scope="row"><label for="chat_wp_bot_name">Nom du bot</label></th>
+									<td>
+										<input type="text" id="chat_wp_bot_name" name="chat_wp_bot_name"
+											value="<?php echo esc_attr( $o['bot_name'] ); ?>"
+											class="regular-text"
+											placeholder="<?php echo esc_attr( self::DEFAULT_BOT_NAME ); ?>" />
+									</td>
+								</tr>
+								<tr>
+									<th scope="row"><label for="chat_wp_welcome_message">Message de bienvenue</label></th>
+									<td>
+										<textarea id="chat_wp_welcome_message" name="chat_wp_welcome_message"
+											rows="3" class="large-text"
+											placeholder="<?php echo esc_attr( self::DEFAULT_WELCOME ); ?>"><?php echo esc_textarea( $o['welcome'] ); ?></textarea>
+										<p class="description">Affiché automatiquement à l'ouverture du chat.</p>
+									</td>
+								</tr>
+								<tr>
+									<th scope="row"><label for="chat_wp_avatar">Avatar du bot</label></th>
+									<td>
+										<div class="cn-avatar-row">
+											<img id="cn-avatar-preview"
+												src="<?php echo esc_url( $o['avatar'] ); ?>"
+												alt="Aperçu avatar"
+												<?php echo $o['avatar'] ? '' : 'style="display:none"'; ?> />
+											<div class="cn-avatar-inputs">
+												<input type="url" id="chat_wp_avatar" name="chat_wp_avatar"
+													value="<?php echo esc_attr( $o['avatar'] ); ?>"
+													class="regular-text"
+													placeholder="https://…" />
+												<button type="button" id="cn-avatar-upload" class="button">
+													Choisir depuis la médiathèque
+												</button>
+												<button type="button" id="cn-avatar-remove" class="button">
+													Supprimer
+												</button>
+											</div>
+										</div>
+										<p class="description">Laissez vide pour afficher l'initiale du nom du bot.</p>
+									</td>
+								</tr>
+								<tr>
+									<th scope="row"><label for="chat_wp_primary_color">Couleur principale</label></th>
+									<td>
+										<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+											<input type="color" id="chat_wp_primary_color" name="chat_wp_primary_color"
+												value="<?php echo esc_attr( $o['color'] ); ?>" />
+											<span id="cn-color-swatch"
+												style="display:inline-block;width:28px;height:28px;border-radius:6px;border:1px solid #ddd;background:<?php echo esc_attr( $o['color'] ); ?>;vertical-align:middle;"></span>
+											<code id="cn-color-code"><?php echo esc_html( $o['color'] ); ?></code>
+										</div>
+										<p class="description">Couleur de la bulle flottante et des messages utilisateur.</p>
+									</td>
+								</tr>
+							</table>
+						</div>
+
+						<!-- API -->
+						<div class="chatbot-section">
+							<h2>Connexion API</h2>
+							<table class="form-table" role="presentation">
+								<tr>
+									<th scope="row"><label for="chat_wp_api_url">URL de l'API</label></th>
+									<td>
+										<input type="url" id="chat_wp_api_url" name="chat_wp_api_url"
+											value="<?php echo esc_attr( $o['api_url'] ); ?>"
+											class="large-text"
+											placeholder="<?php echo esc_attr( self::DEFAULT_API_URL ); ?>" />
+									</td>
+								</tr>
+								<tr>
+									<th scope="row"><label for="chat_wp_client_id">Client ID</label></th>
+									<td>
+										<input type="text" id="chat_wp_client_id" name="chat_wp_client_id"
+											value="<?php echo esc_attr( $o['client_id'] ); ?>"
+											class="regular-text"
+											placeholder="<?php echo esc_attr( self::DEFAULT_CLIENT_ID ); ?>" />
+										<p class="description">Identifiant envoyé dans chaque requête à l'API.</p>
+									</td>
+								</tr>
+							</table>
+						</div>
+
+						<?php submit_button( 'Enregistrer les réglages' ); ?>
+					</div><!-- /.chatbot-admin-main -->
+
+					<!-- ── Sidebar ── -->
+					<div class="chatbot-admin-sidebar">
+
+						<div class="chatbot-test-box">
+							<h3>Tester la connexion</h3>
+							<p style="font-size:13px;color:#6b7280;margin-top:0;">
+								Envoie une requête GET vers le endpoint <code>/health</code> de l'API configurée.
+							</p>
+							<button type="button" id="test-connection" class="button button-secondary">
+								Tester la connexion
+							</button>
+							<div id="test-result"></div>
+						</div>
+
+						<div class="chatbot-info-box">
+							<h3>Informations</h3>
+
+							<h4>Format de requête</h4>
+							<ul>
+								<li>Méthode : <code>POST</code></li>
+								<li>Body : <code>{ clientId, messages }</code></li>
+								<li>Réponse attendue : <code>{ reply }</code></li>
+							</ul>
+
+							<h4>Endpoint de santé</h4>
+							<ul>
+								<li style="word-break:break-all;"><code><?php echo $health_url; ?></code></li>
+							</ul>
+
+							<h4>Version du plugin</h4>
+							<ul>
+								<li>Chat Nominomi 1.1.0</li>
+							</ul>
+						</div>
+
+					</div><!-- /.chatbot-admin-sidebar -->
+
+				</div><!-- /.chatbot-admin-container -->
+			</form>
+		</div>
+		<?php
+	}
+
+	// ── CSS – front-end ───────────────────────────────────────────────────
+
+	private function get_css( $color = self::DEFAULT_COLOR ) {
+		$rgb = $this->hex_to_rgb( $color );
 		return '
 /*
  * Chat Nominomi – Glassmorphism stylesheet
@@ -115,7 +396,7 @@ class Chat_Nominomi {
 	--cn-shadow-lg:           0 12px 40px rgba(0, 0, 0, 0.3);
 	--cn-shadow-inner:        inset 0 1px 0 rgba(255, 255, 255, 0.05);
 	--cn-blur-lg:             blur(16px);
-	--cn-accent-rgb:          99, 102, 241;
+	--cn-accent-rgb:          ' . esc_attr( $rgb ) . ';
 	--cn-text-primary:        rgba(255, 255, 255, 0.95);
 	--cn-text-secondary:      rgba(255, 255, 255, 0.75);
 	--cn-text-muted:          rgba(255, 255, 255, 0.55);
@@ -170,7 +451,7 @@ class Chat_Nominomi {
 }
 #cn-bubble.cn-open svg { opacity: 0; transform: rotate(-90deg) scale(0.8); }
 #cn-bubble.cn-open::after {
-	content: "×";
+	content: "\00d7";
 	font-size: 30px;
 	line-height: 1;
 	font-weight: 300;
@@ -408,6 +689,193 @@ div#cn-window button#cn-minimize svg {
 	}
 	#cn-bubble { bottom: 20px; right: 20px; }
 }
+		';
+	}
+
+	// ── CSS – admin ───────────────────────────────────────────────────────
+
+	private function get_admin_css() {
+		return '
+/* Styles pour l\'interface d\'administration */
+.chatbot-admin-container {
+	display: grid;
+	grid-template-columns: 1fr 300px;
+	gap: 20px;
+	margin-top: 20px;
+}
+.chatbot-admin-main {
+	background: #fff;
+	padding: 20px;
+	border-radius: 8px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.chatbot-admin-sidebar {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+}
+.chatbot-section {
+	margin-bottom: 30px;
+	padding-bottom: 20px;
+	border-bottom: 1px solid #e5e7eb;
+}
+.chatbot-section:last-child { border-bottom: none; margin-bottom: 0; }
+.chatbot-section h2 { color: #1f2937; font-size: 20px; margin-bottom: 15px; font-weight: 600; }
+
+/* Toggle Switch */
+.chatbot-toggle { position: relative; display: inline-block; width: 50px; height: 24px; }
+.chatbot-toggle input { opacity: 0; width: 0; height: 0; }
+.chatbot-toggle-slider {
+	position: absolute;
+	cursor: pointer;
+	top: 0; left: 0; right: 0; bottom: 0;
+	background-color: #ccc;
+	transition: 0.3s;
+	border-radius: 24px;
+}
+.chatbot-toggle-slider:before {
+	position: absolute;
+	content: "";
+	height: 18px;
+	width: 18px;
+	left: 3px;
+	bottom: 3px;
+	background-color: white;
+	transition: 0.3s;
+	border-radius: 50%;
+}
+.chatbot-toggle input:checked + .chatbot-toggle-slider { background-color: #3B82F6; }
+.chatbot-toggle input:checked + .chatbot-toggle-slider:before { transform: translateX(26px); }
+
+/* Info boxes dans la sidebar */
+.chatbot-info-box,
+.chatbot-test-box {
+	background: #fff;
+	padding: 20px;
+	border-radius: 8px;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.chatbot-info-box h3,
+.chatbot-test-box h3 { margin-top: 0; color: #1f2937; font-size: 16px; font-weight: 600; }
+.chatbot-info-box h4 { color: #374151; font-size: 14px; font-weight: 600; margin: 15px 0 8px 0; }
+.chatbot-info-box ul { margin: 0; padding-left: 20px; }
+.chatbot-info-box li { margin-bottom: 5px; color: #6b7280; font-size: 14px; }
+
+/* Avatar row */
+.cn-avatar-row { display: flex; align-items: flex-start; gap: 14px; flex-wrap: wrap; }
+.cn-avatar-row #cn-avatar-preview {
+	width: 56px;
+	height: 56px;
+	border-radius: 50%;
+	object-fit: cover;
+	border: 2px solid #e5e7eb;
+	flex-shrink: 0;
+}
+.cn-avatar-inputs { display: flex; flex-direction: column; gap: 6px; }
+.cn-avatar-inputs input { width: 320px; max-width: 100%; }
+
+/* Test de connexion */
+#test-connection { width: 100%; margin-bottom: 15px; }
+#test-result { padding: 10px; border-radius: 6px; font-size: 14px; display: none; margin-top: 10px; }
+#test-result.success { background: #d1fae5; color: #065f46; border: 1px solid #a7f3d0; }
+#test-result.error   { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+
+/* Responsive pour l\'admin */
+@media (max-width: 782px) {
+	.chatbot-admin-container { grid-template-columns: 1fr; }
+}
+
+/* Amélioration des champs de formulaire */
+.form-table input[type="text"],
+.form-table input[type="url"],
+.form-table textarea {
+	border: 1px solid #e5e7eb;
+	border-radius: 6px;
+	padding: 8px 12px;
+	transition: border-color 0.2s ease;
+}
+.form-table input[type="text"]:focus,
+.form-table input[type="url"]:focus,
+.form-table textarea:focus {
+	border-color: #3B82F6;
+	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+	outline: none;
+}
+		';
+	}
+
+	// ── JS – admin ────────────────────────────────────────────────────────
+
+	private function get_admin_js() {
+		return '
+(function($) {
+	$(function() {
+
+		/* ── Media uploader (avatar) ── */
+		var mediaFrame;
+		$("#cn-avatar-upload").on("click", function(e) {
+			e.preventDefault();
+			if (mediaFrame) { mediaFrame.open(); return; }
+			mediaFrame = wp.media({
+				title:    "Choisir un avatar",
+				button:   { text: "Utiliser cette image" },
+				multiple: false,
+				library:  { type: "image" }
+			});
+			mediaFrame.on("select", function() {
+				var attachment = mediaFrame.state().get("selection").first().toJSON();
+				$("#chat_wp_avatar").val(attachment.url);
+				$("#cn-avatar-preview").attr("src", attachment.url).show();
+			});
+			mediaFrame.open();
+		});
+
+		$("#cn-avatar-remove").on("click", function(e) {
+			e.preventDefault();
+			$("#chat_wp_avatar").val("");
+			$("#cn-avatar-preview").attr("src", "").hide();
+		});
+
+		/* ── Color preview ── */
+		$("#chat_wp_primary_color").on("input", function() {
+			var color = $(this).val();
+			$("#cn-color-swatch").css("background", color);
+			$("#cn-color-code").text(color);
+		});
+
+		/* ── Test connection ── */
+		$("#test-connection").on("click", function() {
+			var apiUrl = $("#chat_wp_api_url").val().trim();
+			var $result = $("#test-result");
+
+			if (!apiUrl) {
+				$result.removeClass("success").addClass("error")
+					.text("Veuillez d\'abord saisir une URL d\'API.")
+					.show();
+				return;
+			}
+
+			var healthUrl = apiUrl.replace(/\\/+$/, "") + "/health";
+			$result.removeClass("success error").text("Test en cours…").show();
+
+			fetch(healthUrl, { method: "GET" })
+				.then(function(r) {
+					if (r.ok) {
+						$result.removeClass("error").addClass("success")
+							.text("Connexion réussie ! L\'API répond correctement (HTTP " + r.status + ").");
+					} else {
+						$result.removeClass("success").addClass("error")
+							.text("L\'API a répondu avec le code HTTP " + r.status + ".");
+					}
+				})
+				.catch(function() {
+					$result.removeClass("success").addClass("error")
+						.text("Impossible de joindre l\'API. Vérifiez l\'URL et les autorisations CORS.");
+				});
+		});
+
+	});
+})(jQuery);
 		';
 	}
 }
