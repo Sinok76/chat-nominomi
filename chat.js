@@ -87,10 +87,39 @@
 	});
 
 	/* ── Message rendering ── */
+
+	function escapeHtml(str) {
+		return str
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;')
+			.replace(/'/g, '&#39;');
+	}
+
+	function linkify(text) {
+		var escaped   = escapeHtml(text);
+		var calendly  = config.calendlyUrl || '';
+		var urlRegex  = /(https?:\/\/[^\s<>"']+)/g;
+
+		return escaped.replace(urlRegex, function (url) {
+			// Decode the escaped URL back for comparison
+			var rawUrl = url.replace(/&amp;/g, '&');
+			if (calendly && rawUrl === calendly) {
+				return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="cn-btn-calendly">&#128197; Prendre rendez-vous</a>';
+			}
+			return '<a href="' + url + '" target="_blank" rel="noopener noreferrer" class="cn-link">' + url + '</a>';
+		});
+	}
+
 	function appendMessage(role, text) {
 		var div = document.createElement('div');
 		div.className = 'cn-msg cn-msg-' + role;
-		div.textContent = text;
+		if (role === 'bot') {
+			div.innerHTML = linkify(text);
+		} else {
+			div.textContent = text;
+		}
 		messages.appendChild(div);
 		scrollBottom();
 		return div;

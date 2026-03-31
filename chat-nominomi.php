@@ -711,6 +711,29 @@ div#cn-window button#cn-minimize svg {
 @keyframes cn-slideIn    { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes cn-bounce-subtle { 0%, 80%, 100% { transform: scale(0.8); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
 
+/* ── Links inside bot bubbles ── */
+.cn-msg-bot .cn-link {
+	color: #fff;
+	text-decoration: underline;
+	word-break: break-all;
+}
+.cn-msg-bot .cn-link:hover { opacity: .8; }
+
+.cn-msg-bot .cn-btn-calendly {
+	display: inline-block;
+	margin-top: 8px;
+	padding: 8px 16px;
+	border-radius: var(--cn-radius-xl);
+	background: rgba(var(--cn-accent-rgb), 0.4);
+	color: #fff !important;
+	text-decoration: none !important;
+	font-size: 14px;
+	font-weight: 500;
+	line-height: 1.4;
+	transition: background var(--cn-transition-smooth);
+}
+.cn-msg-bot .cn-btn-calendly:hover { background: rgba(var(--cn-accent-rgb), 0.6); }
+
 /* ── Mobile ── */
 @media (max-width: 480px) {
 	#cn-window {
