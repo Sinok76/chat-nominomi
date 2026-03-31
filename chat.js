@@ -6,8 +6,26 @@
 	var API_URL  = config.apiUrl   || 'https://chat.nominomi.fr/chat';
 	var CLIENT_ID = config.clientId || 'nominomi';
 
+	/* ── sessionStorage helpers ── */
+	var STORAGE_KEY = 'cn_history';
+
+	function saveHistory() {
+		try {
+			sessionStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+		} catch (e) { /* quota ou mode privé */ }
+	}
+
+	function loadHistory() {
+		try {
+			var raw = sessionStorage.getItem(STORAGE_KEY);
+			return raw ? JSON.parse(raw) : [];
+		} catch (e) {
+			return [];
+		}
+	}
+
 	/* ── State ── */
-	var history  = [];   // [{ role: 'user'|'assistant', content: '' }]
+	var history  = loadHistory();  // restauré depuis sessionStorage
 	var isOpen   = false;
 	var isBusy   = false;
 
@@ -22,6 +40,13 @@
 	var minimize = document.getElementById('cn-minimize');
 
 	if (!bubble || !win) return;
+
+	/* ── Restore messages from sessionStorage ── */
+	history.forEach(function (msg) {
+		if (msg.role === 'user' || msg.role === 'assistant') {
+			appendMessage(msg.role === 'assistant' ? 'bot' : 'user', msg.content);
+		}
+	});
 
 	/* ── Open / Close ── */
 	function openChat() {
@@ -105,6 +130,7 @@
 
 		/* Push user message to history and UI */
 		history.push({ role: 'user', content: text });
+		saveHistory();
 		appendMessage('user', text);
 
 		setInputState(true);
@@ -138,6 +164,7 @@
 			if (!reply) throw new Error('Réponse vide du serveur.');
 
 			history.push({ role: 'assistant', content: reply });
+			saveHistory();
 			appendMessage('bot', reply);
 
 		} catch (err) {
