@@ -540,6 +540,8 @@ class Chat_Nominomi {
 	width: 36px !important;
 	height: 36px !important;
 	border-radius: 50% !important;
+	padding: 0 !important;
+	line-height: 1 !important;
 	margin-left: auto;
 	display: flex;
 	align-items: center;
@@ -666,6 +668,8 @@ class Chat_Nominomi {
 	width: 44px !important;
 	height: 44px !important;
 	border-radius: 50% !important;
+	padding: 0 !important;
+	line-height: 1 !important;
 	display: flex;
 	align-items: center;
 	justify-content: center;
