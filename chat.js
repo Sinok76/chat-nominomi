@@ -116,9 +116,14 @@
 				messages: history.slice()   /* full conversation history */
 			};
 
+			var headers = { 'Content-Type': 'application/json' };
+			if (config.secretKey) {
+				headers['X-Chat-Secret'] = config.secretKey;
+			}
+
 			var response = await fetch(API_URL, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: headers,
 				body: JSON.stringify(payload)
 			});
 

@@ -63,9 +63,10 @@ class Chat_Nominomi {
 		if ( ! $this->opt( 'chat_wp_enabled', '1' ) ) return;
 
 		$api_url   = esc_url( $this->opt( 'chat_wp_api_url',        self::DEFAULT_API_URL ) );
-		$client_id = sanitize_text_field( $this->opt( 'chat_wp_client_id',    self::DEFAULT_CLIENT_ID ) );
-		$welcome   = sanitize_textarea_field( $this->opt( 'chat_wp_welcome_message', self::DEFAULT_WELCOME ) );
-		$color     = sanitize_hex_color( $this->opt( 'chat_wp_primary_color', self::DEFAULT_COLOR ) ) ?: self::DEFAULT_COLOR;
+		$client_id  = sanitize_text_field( $this->opt( 'chat_wp_client_id',    self::DEFAULT_CLIENT_ID ) );
+		$welcome    = sanitize_textarea_field( $this->opt( 'chat_wp_welcome_message', self::DEFAULT_WELCOME ) );
+		$color      = sanitize_hex_color( $this->opt( 'chat_wp_primary_color', self::DEFAULT_COLOR ) ) ?: self::DEFAULT_COLOR;
+		$secret_key = $this->opt( 'chat_wp_secret_key', '' );
 
 		wp_enqueue_script(
 			'chat-nominomi',
@@ -79,6 +80,7 @@ class Chat_Nominomi {
 			'apiUrl'         => $api_url,
 			'clientId'       => $client_id,
 			'welcomeMessage' => $welcome,
+			'secretKey'      => $secret_key,
 		] );
 
 		wp_register_style( 'chat-nominomi-base', false );
@@ -190,6 +192,7 @@ class Chat_Nominomi {
 		update_option( 'chat_wp_primary_color',    sanitize_hex_color( wp_unslash( $_POST['chat_wp_primary_color'] ?? '' ) ) ?: self::DEFAULT_COLOR );
 		update_option( 'chat_wp_api_url',          esc_url_raw( wp_unslash( $_POST['chat_wp_api_url'] ?? '' ) ) );
 		update_option( 'chat_wp_client_id',        sanitize_text_field( wp_unslash( $_POST['chat_wp_client_id'] ?? '' ) ) );
+		update_option( 'chat_wp_secret_key',       sanitize_text_field( wp_unslash( $_POST['chat_wp_secret_key'] ?? '' ) ) );
 
 		wp_safe_redirect( admin_url( 'options-general.php?page=chat-nominomi&updated=1' ) );
 		exit;
@@ -327,6 +330,16 @@ class Chat_Nominomi {
 											class="regular-text"
 											placeholder="<?php echo esc_attr( self::DEFAULT_CLIENT_ID ); ?>" />
 										<p class="description">Identifiant envoyé dans chaque requête à l'API.</p>
+									</td>
+								</tr>
+								<tr>
+									<th scope="row"><label for="chat_wp_secret_key">Clé secrète</label></th>
+									<td>
+										<input type="password" id="chat_wp_secret_key" name="chat_wp_secret_key"
+											value="<?php echo esc_attr( $this->opt( 'chat_wp_secret_key', '' ) ); ?>"
+											class="regular-text"
+											autocomplete="new-password" />
+										<p class="description">Envoyée dans chaque requête via le header <code>X-Chat-Secret</code>. Laissez vide pour désactiver.</p>
 									</td>
 								</tr>
 							</table>
