@@ -438,9 +438,10 @@ class Chat_Nominomi {
 	bottom: 24px;
 	right: 24px;
 	z-index: 99998;
-	width: 60px;
-	height: 60px;
-	border-radius: var(--cn-radius-full);
+	width: 60px !important;
+	height: 60px !important;
+	border-radius: 50% !important;
+	flex-shrink: 0 !important;
 	background: var(--cn-glass-bg-primary);
 	backdrop-filter: var(--cn-blur-lg);
 	-webkit-backdrop-filter: var(--cn-blur-lg);
@@ -515,9 +516,10 @@ class Chat_Nominomi {
 }
 #cn-header-info { display: flex; align-items: center; gap: var(--cn-space-md); flex: 1; }
 #cn-avatar {
-	width: 40px;
-	height: 40px;
-	border-radius: var(--cn-radius-full);
+	width: 40px !important;
+	height: 40px !important;
+	border-radius: 50% !important;
+	flex-shrink: 0 !important;
 	background: linear-gradient(135deg, rgba(var(--cn-accent-rgb), 0.8), rgba(124, 58, 237, 0.8));
 	color: var(--cn-text-primary);
 	font-size: 16px;
@@ -525,7 +527,6 @@ class Chat_Nominomi {
 	display: flex;
 	align-items: center;
 	justify-content: center;
-	flex-shrink: 0;
 	overflow: hidden;
 }
 #cn-bot-name { margin: 0; font-size: 16px; font-weight: 600; color: var(--cn-text-primary); line-height: 1.2; }
