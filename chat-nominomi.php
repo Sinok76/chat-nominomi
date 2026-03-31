@@ -855,7 +855,8 @@ div#cn-window button#cn-minimize svg {
 				return;
 			}
 
-			var healthUrl = apiUrl.replace(/\\/+$/, "") + "/health";
+			var parsed    = new URL(apiUrl);
+			var healthUrl = parsed.origin + "/health";
 			$result.removeClass("success error").text("Test en cours…").show();
 
 			fetch(healthUrl, { method: "GET" })
