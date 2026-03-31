@@ -11,7 +11,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-require_once plugin_dir_path( __FILE__ ) . 'plugin-update-checker-master/load-v5p6.php';
+require_once plugin_dir_path( __FILE__ ) . 'plugin-update-checker-master/plugin-update-checker-master/load-v5p6.php';
 
 class Chat_Nominomi {
 
