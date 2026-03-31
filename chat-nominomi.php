@@ -537,9 +537,9 @@ class Chat_Nominomi {
 /* Minimize button */
 #cn-header #cn-minimize {
 	flex-shrink: 0;
-	width: 36px;
-	height: 36px;
-	border-radius: var(--cn-radius-full);
+	width: 36px !important;
+	height: 36px !important;
+	border-radius: 50% !important;
 	margin-left: auto;
 	display: flex;
 	align-items: center;
@@ -663,9 +663,9 @@ class Chat_Nominomi {
 /* Send button */
 #cn-form #cn-send {
 	flex-shrink: 0;
-	width: 44px;
-	height: 44px;
-	border-radius: var(--cn-radius-full);
+	width: 44px !important;
+	height: 44px !important;
+	border-radius: 50% !important;
 	display: flex;
 	align-items: center;
 	justify-content: center;
