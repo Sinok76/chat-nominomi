@@ -11,6 +11,8 @@
 
 defined( 'ABSPATH' ) || exit;
 
+require_once plugin_dir_path( __FILE__ ) . 'plugin-update-checker-master/load-v5p5.php';
+
 class Chat_Nominomi {
 
 	private static $instance = null;
@@ -34,6 +36,13 @@ class Chat_Nominomi {
 		add_action( 'admin_menu',            [ $this, 'register_menu' ] );
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_assets' ] );
 		add_action( 'admin_post_cn_save',    [ $this, 'save_settings' ] );
+
+		$updateChecker = \YahnisElsts\PluginUpdateChecker\v5p5\PucFactory::buildUpdateChecker(
+			'https://github.com/Sinok76/chat-nominomi/',
+			__FILE__,
+			'chat-nominomi'
+		);
+		$updateChecker->getVcsSource()->setBranch( 'master' );
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────
