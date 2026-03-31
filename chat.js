@@ -157,6 +157,17 @@
 	/* ── Form submit ── */
 	form.addEventListener('submit', function (e) {
 		e.preventDefault();
+		e.stopPropagation();
+		var text = input.value.trim();
+		if (!text) return;
+		input.value = '';
+		sendMessage(text);
+	});
+
+	/* ── Send button – defensive preventDefault (certains thèmes déclenchent le submit natif) ── */
+	sendBtn.addEventListener('click', function (e) {
+		e.preventDefault();
+		e.stopPropagation();
 		var text = input.value.trim();
 		if (!text) return;
 		input.value = '';
@@ -167,7 +178,11 @@
 	input.addEventListener('keydown', function (e) {
 		if (e.key === 'Enter' && !e.shiftKey) {
 			e.preventDefault();
-			form.dispatchEvent(new Event('submit'));
+			e.stopPropagation();
+			var text = input.value.trim();
+			if (!text) return;
+			input.value = '';
+			sendMessage(text);
 		}
 	});
 
