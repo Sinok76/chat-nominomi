@@ -143,6 +143,9 @@
 			};
 
 			payload._secret = config.secretKey || '';
+			if (config.calendlyUrl) {
+				payload.calendlyUrl = config.calendlyUrl;
+			}
 
 			var response = await fetch(API_URL, {
 				method: 'POST',
