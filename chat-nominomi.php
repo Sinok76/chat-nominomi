@@ -83,7 +83,6 @@ class Chat_Nominomi {
 			'apiUrl'         => $api_url,
 			'clientId'       => $client_id,
 			'welcomeMessage' => $welcome,
-			'secretKey'      => $secret_key,
 			'calendlyUrl'    => $calendly_url,
 			'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
 		] );
