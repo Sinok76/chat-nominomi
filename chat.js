@@ -25,9 +25,11 @@
 	}
 
 	/* ── State ── */
-	var history  = loadHistory();  // restauré depuis sessionStorage
-	var isOpen   = false;
-	var isBusy   = false;
+	var history   = loadHistory();  // restauré depuis sessionStorage
+	var isOpen    = false;
+	var isBusy    = false;
+	var authToken = null;       // JWT récupéré au chargement
+	var tokenReady = false;     // false = fetch en cours ou échoué
 
 	/* ── DOM refs ── */
 	var bubble   = document.getElementById('cn-bubble');
@@ -40,6 +42,26 @@
 	var minimize = document.getElementById('cn-minimize');
 
 	if (!bubble || !win) return;
+
+	/* ── Fetch JWT token ── */
+	(function fetchToken() {
+		var ajaxUrl = config.ajaxUrl || '';
+		if (!ajaxUrl) { tokenReady = true; return; }
+
+		fetch(ajaxUrl + '?action=cn_get_token', { method: 'GET' })
+			.then(function (r) { return r.json(); })
+			.then(function (data) {
+				if (data && data.token) {
+					authToken  = data.token;
+					tokenReady = true;
+				} else {
+					tokenReady = false;
+				}
+			})
+			.catch(function () {
+				tokenReady = false;
+			});
+	})();
 
 	/* ── Restore messages from sessionStorage ── */
 	history.forEach(function (msg) {
@@ -156,6 +178,10 @@
 
 	async function sendMessage(text) {
 		if (!text.trim() || isBusy) return;
+		if (!tokenReady) {
+			appendError('Connexion non prête, veuillez patienter et réessayer.');
+			return;
+		}
 
 		/* Push user message to history and UI */
 		history.push({ role: 'user', content: text });
@@ -171,7 +197,7 @@
 				messages: history.slice()   /* full conversation history */
 			};
 
-			payload._secret = config.secretKey || '';
+			payload._token = authToken || '';
 			if (config.calendlyUrl) {
 				payload.calendlyUrl = config.calendlyUrl;
 			}

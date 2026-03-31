@@ -33,8 +33,9 @@ class Chat_Nominomi {
 		add_action( 'wp_footer',             [ $this, 'render_widget' ] );
 		add_action( 'admin_menu',            [ $this, 'register_menu' ] );
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_assets' ] );
-		add_action( 'admin_post_cn_save',    [ $this, 'save_settings' ] );
-
+		add_action( 'admin_post_cn_save',          [ $this, 'save_settings' ] );
+		add_action( 'wp_ajax_cn_get_token',        [ $this, 'ajax_get_token' ] );
+		add_action( 'wp_ajax_nopriv_cn_get_token', [ $this, 'ajax_get_token' ] );
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────
@@ -84,6 +85,7 @@ class Chat_Nominomi {
 			'welcomeMessage' => $welcome,
 			'secretKey'      => $secret_key,
 			'calendlyUrl'    => $calendly_url,
+			'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
 		] );
 
 		wp_register_style( 'chat-nominomi-base', false );
@@ -200,6 +202,28 @@ class Chat_Nominomi {
 
 		wp_safe_redirect( admin_url( 'options-general.php?page=chat-nominomi&updated=1' ) );
 		exit;
+	}
+
+	public function ajax_get_token() {
+		$secret = $this->opt( 'chat_wp_secret_key', '' );
+		$now    = time();
+
+		$header  = $this->base64url_encode( wp_json_encode( [ 'alg' => 'HS256', 'typ' => 'JWT' ] ) );
+		$payload = $this->base64url_encode( wp_json_encode( [
+			'iat'    => $now,
+			'exp'    => $now + HOUR_IN_SECONDS,
+			'domain' => sanitize_text_field( $_SERVER['HTTP_HOST'] ?? '' ),
+		] ) );
+
+		$signature = $this->base64url_encode(
+			hash_hmac( 'sha256', $header . '.' . $payload, $secret, true )
+		);
+
+		wp_send_json( [ 'token' => $header . '.' . $payload . '.' . $signature ] );
+	}
+
+	private function base64url_encode( $data ) {
+		return rtrim( strtr( base64_encode( $data ), '+/', '-_' ), '=' );
 	}
 
 	public function render_admin_page() {
